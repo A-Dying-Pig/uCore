@@ -67,6 +67,20 @@ void bin_loader(uint64 start, uint64 end, struct proc *p) {
     p->trapframe->epc = BASE_ADDRESS;
     alloc_ustack(p);
     p->sz = USTACK_SIZE + length;
+
+    // initialize mail box
+    warn("alloc memory for mailbox\n");
+    if((p->mailbox_data =  (char *)kalloc()) == 0){
+        panic("kalloc\n");
+    }
+    if((p->mailbox = (struct mailbox *)kalloc()) == 0){
+        panic("kalloc\n");
+    }
+    p->mailbox->mail_counter = 0;
+    p->mailbox->length_e = 0;
+    p->mailbox->length_s = 0;
+    p->mailbox->data_e = p->mailbox_data;
+    p->mailbox->data_s = p->mailbox_data;
 }
 
 void loader(int id, void* p) {

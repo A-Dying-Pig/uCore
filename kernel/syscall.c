@@ -27,7 +27,8 @@ uint64 console_read(uint64 va, uint64 len) {
 }
 
 uint64 sys_write(int fd, uint64 va, uint64 len) {
-    if(fd == 0) {
+    // printf("write: %d\n",fd);
+    if(fd == 1) {
         return console_write(va, len);
     }
     struct proc *p = curr_proc();
@@ -135,20 +136,24 @@ uint64 sys_close(int fd) {
 
 uint64 sys_mailread(uint64 va, int len){
     struct proc* p = curr_proc();
-    char mail[MAX_MAIL_LENGTH];
+    char mail[2048];
+    memset(mail, 0, 2048);
     int ret = mailread(mail,len);
-    if( ret > 0){ 
-        copyout(p->pagetable, va, mail, MIN(len,MAX_MAIL_LENGTH));
+    if(ret > 0){ 
+        copyout(p->pagetable, va, mail, len);
     }
-    info("sys_mailread: %s\n", mail);
+    info("sys_mailread: %s, ret: %d, \n", mail, ret);
     return ret;
 }
 
 uint64 sys_mailwrite(int pid, uint64 va, int len){
     struct proc* p = curr_proc();
     char mail[2048];
-    copyin(p->pagetable, mail, va, len);
-    info("sys_mailwrite: %s\n", mail);
+    if (copyinstr(p->pagetable, mail, va, len) < 0){
+        warn("Invalid address\n");
+        return -1;
+    }
+    info("sys_mailwrite: %s, length: %d\n", mail, len);
     return mailwrite(pid,mail,len);
 }
 
@@ -189,14 +194,14 @@ void syscall() {
         case SYS_pipe2:
             ret = sys_pipe(args[0]);
             break;
-        case SYS_close:
-            ret = sys_close(args[0]);
-            break;
         case SYS_mailread:
             ret = sys_mailread(args[0],args[1]);
             break;
         case SYS_mailwrite:
             ret = sys_mailwrite(args[0],args[1],args[2]);
+            break;
+        case SYS_close:
+            ret = sys_close(args[0]);
             break;
         default:
             ret = -1;

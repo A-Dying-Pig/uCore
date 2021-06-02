@@ -30,7 +30,6 @@ struct file {
 
 struct mailbox{
     int mail_counter;
-    char data[MAIL_BUF_LENGTH];
     char * data_s;
     char * data_e;
     int mail_length[MAX_MAIL];

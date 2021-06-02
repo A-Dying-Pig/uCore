@@ -79,6 +79,13 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 static void
 freeproc(struct proc *p)
 {
+    // if(p->mailbox_data)
+    //     kfree((void*)p->mailbox_data);
+    // p->mailbox_data = 0;
+    // if(p->mailbox)
+    //     kfree((void*)p->mailbox);
+    // p->mailbox = 0;
+
     if(p->trapframe)
         kfree((void*)p->trapframe);
     p->trapframe = 0;
@@ -120,19 +127,13 @@ found:
     memset((void*)p->kstack, 0, KSTACK_SIZE);
     p->context.ra = (uint64)usertrapret;
     p->context.sp = p->kstack + KSTACK_SIZE;
-    //initialize mailbox
-    p->mailbox.data_s = &(p->mailbox.data[0]);
-    p->mailbox.data_e = &(p->mailbox.data[0]);
-    p->mailbox.mail_counter = 0;
-    p->mailbox.length_s = 0;
-    p->mailbox.length_e = 0;
     return p;
 }
 
-int mailread(void* buf, int len){
+int mailread(char* buf, int len){
     struct proc *p = curr_proc();
 
-   if (p->mailbox.mail_counter == 0){
+   if (p->mailbox->mail_counter == 0){
         warn("Mailbox is empty\n");
         return -1;
     }
@@ -145,24 +146,24 @@ int mailread(void* buf, int len){
         return 0;
     }
  
-    char * buffer = (char *)buf;
-    int remain_bytes =  p->mailbox.data + MAIL_BUF_LENGTH - p->mailbox.data_s,
-        mail_length = p->mailbox.mail_length[p->mailbox.length_s];
+    int remain_bytes =  p->mailbox_data + MAIL_BUF_LENGTH - p->mailbox->data_s,
+        mail_length = p->mailbox->mail_length[p->mailbox->length_s];
 
+    // info("Read mail length: %d\n",mail_length);
     if (len > mail_length){
         len = mail_length;
     }
 
     if (len <= remain_bytes){
-        memmove(buffer, p->mailbox.data_s, len);
+        memmove(buf, p->mailbox->data_s, len);
     }else{
-        memmove(buffer, p->mailbox.data_s, remain_bytes);
-        memmove(buffer + remain_bytes,p->mailbox.data, len - remain_bytes);
+        memmove(buf, p->mailbox->data_s, remain_bytes);
+        memmove(buf + remain_bytes, p->mailbox_data, len - remain_bytes);
     }
-    printf("read mail: %s", buffer);
-    p->mailbox.data_s = (p->mailbox.data_s - p->mailbox.data + mail_length) % MAIL_BUF_LENGTH + p->mailbox.data;
-    p->mailbox.length_s = (p->mailbox.length_s + 1 ) % MAX_MAIL;
-    p->mailbox.mail_counter --;
+    // printf("read mail: %s, length: %d", buf, len);
+    p->mailbox->data_s = (p->mailbox->data_s - p->mailbox_data + mail_length) % MAIL_BUF_LENGTH + p->mailbox_data;
+    p->mailbox->length_s = (p->mailbox->length_s + 1 ) % MAX_MAIL;
+    p->mailbox->mail_counter --;
     return len;
 }
 
@@ -177,7 +178,7 @@ int mailwrite(int pid, void* buf, int len){
     warn("Sending mail to a non-existing process\n");
     return 0;
 found:
-    if (p->mailbox.mail_counter == MAX_MAIL){
+    if (p->mailbox->mail_counter == MAX_MAIL){
         warn("Mailbox is full\n");
         return -1;
     }
@@ -200,18 +201,18 @@ found:
         len = MAX_MAIL_LENGTH;
         buffer[len] = '\0';
     }
-    printf("sending mail: %s\n", buffer);
-    p->mailbox.mail_counter ++;
-    p->mailbox.mail_length[p->mailbox.length_e] = len;
-    p->mailbox.length_e = (p->mailbox.length_e + 1 ) % MAX_MAIL;
-    int remain_bytes = p->mailbox.data + MAIL_BUF_LENGTH - p->mailbox.data_e;
+    printf("sending mail: %s, length: %d \n", buffer,len);
+    p->mailbox->mail_counter ++;
+    p->mailbox->mail_length[p->mailbox->length_e] = len;
+    p->mailbox->length_e = (p->mailbox->length_e + 1 ) % MAX_MAIL;
+    int remain_bytes = p->mailbox_data + MAIL_BUF_LENGTH - p->mailbox->data_e;
     if (len <= remain_bytes){
-        memmove(p->mailbox.data_e, buffer, len);
+        memmove(p->mailbox->data_e, buffer, len);
     }else{
-        memmove(p->mailbox.data_e, buffer, remain_bytes);
-        memmove(p->mailbox.data, buffer + remain_bytes, len - remain_bytes);
+        memmove(p->mailbox->data_e, buffer, remain_bytes);
+        memmove(p->mailbox_data, buffer + remain_bytes, len - remain_bytes);
     }
-    p->mailbox.data_e = (p->mailbox.data_e - p->mailbox.data + len) % MAIL_BUF_LENGTH + p->mailbox.data;
+    p->mailbox->data_e = (p->mailbox->data_e - p->mailbox_data + len) % MAIL_BUF_LENGTH + p->mailbox_data;
     return len;
 }
 
@@ -291,6 +292,11 @@ fork(void)
     pid = np->pid;
     np->parent = p;
     np->state = RUNNABLE;
+
+    //mail box
+    np->mailbox_data = p->mailbox_data;
+    np->mailbox = p->mailbox;
+
     return pid;
 }
 

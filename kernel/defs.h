@@ -62,7 +62,7 @@ int exec(char *);
 int wait(int, int *);
 struct proc *allocproc();
 int fdalloc(struct file *);
-int mailread(void* buf, int len);
+int mailread(char* buf, int len);
 int mailwrite(int pid, void* buf, int len);
 
 // kalloc.c
