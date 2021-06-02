@@ -133,6 +133,25 @@ uint64 sys_close(int fd) {
     return 0;
 }
 
+uint64 sys_mailread(uint64 va, int len){
+    struct proc* p = curr_proc();
+    char mail[MAX_MAIL_LENGTH];
+    int ret = mailread(mail,len);
+    if( ret > 0){ 
+        copyout(p->pagetable, va, mail, MIN(len,MAX_MAIL_LENGTH));
+    }
+    info("sys_mailread: %s\n", mail);
+    return ret;
+}
+
+uint64 sys_mailwrite(int pid, uint64 va, int len){
+    struct proc* p = curr_proc();
+    char mail[2048];
+    copyin(p->pagetable, mail, va, len);
+    info("sys_mailwrite: %s\n", mail);
+    return mailwrite(pid,mail,len);
+}
+
 void syscall() {
     struct proc *p = curr_proc();
     struct trapframe *trapframe = p->trapframe;
@@ -172,6 +191,12 @@ void syscall() {
             break;
         case SYS_close:
             ret = sys_close(args[0]);
+            break;
+        case SYS_mailread:
+            ret = sys_mailread(args[0],args[1]);
+            break;
+        case SYS_mailwrite:
+            ret = sys_mailwrite(args[0],args[1],args[2]);
             break;
         default:
             ret = -1;

@@ -5,6 +5,9 @@
 
 // pipe.h
 #define PIPESIZE 512
+#define MAX_MAIL 16
+#define MAX_MAIL_LENGTH 256
+#define MAIL_BUF_LENGTH (MAX_MAIL * MAX_MAIL_LENGTH)
 
 struct pipe {
     char data[PIPESIZE];
@@ -22,6 +25,17 @@ struct file {
     char writable;
     struct pipe *pipe; // FD_PIPE
     uint off;          // FD_INODE
+};
+
+
+struct mailbox{
+    int mail_counter;
+    char data[MAIL_BUF_LENGTH];
+    char * data_s;
+    char * data_e;
+    int mail_length[MAX_MAIL];
+    int length_s;
+    int length_e;
 };
 
 

@@ -94,6 +94,7 @@ freeproc(struct proc *p)
     }
 }
 
+
 struct proc* allocproc(void)
 {
     struct proc *p;
@@ -119,8 +120,101 @@ found:
     memset((void*)p->kstack, 0, KSTACK_SIZE);
     p->context.ra = (uint64)usertrapret;
     p->context.sp = p->kstack + KSTACK_SIZE;
+    //initialize mailbox
+    p->mailbox.data_s = &(p->mailbox.data[0]);
+    p->mailbox.data_e = &(p->mailbox.data[0]);
+    p->mailbox.mail_counter = 0;
+    p->mailbox.length_s = 0;
+    p->mailbox.length_e = 0;
     return p;
 }
+
+int mailread(void* buf, int len){
+    struct proc *p = curr_proc();
+
+   if (p->mailbox.mail_counter == 0){
+        warn("Mailbox is empty\n");
+        return -1;
+    }
+    if (len <= 0){
+        warn("Invalid receiving buffer length\n\n");
+        return 0;
+    }
+    if (buf == 0){
+        warn("Invalid buffer\n");
+        return 0;
+    }
+ 
+    char * buffer = (char *)buf;
+    int remain_bytes =  p->mailbox.data + MAIL_BUF_LENGTH - p->mailbox.data_s,
+        mail_length = p->mailbox.mail_length[p->mailbox.length_s];
+
+    if (len > mail_length){
+        len = mail_length;
+    }
+
+    if (len <= remain_bytes){
+        memmove(buffer, p->mailbox.data_s, len);
+    }else{
+        memmove(buffer, p->mailbox.data_s, remain_bytes);
+        memmove(buffer + remain_bytes,p->mailbox.data, len - remain_bytes);
+    }
+    printf("read mail: %s", buffer);
+    p->mailbox.data_s = (p->mailbox.data_s - p->mailbox.data + mail_length) % MAIL_BUF_LENGTH + p->mailbox.data;
+    p->mailbox.length_s = (p->mailbox.length_s + 1 ) % MAX_MAIL;
+    p->mailbox.mail_counter --;
+    return len;
+}
+
+
+int mailwrite(int pid, void* buf, int len){
+    struct proc *p;
+    for(p = pool; p < &pool[NPROC]; p++) {
+        if(p->state != UNUSED && p->pid == pid) {
+            goto found;
+        }
+    }
+    warn("Sending mail to a non-existing process\n");
+    return 0;
+found:
+    if (p->mailbox.mail_counter == MAX_MAIL){
+        warn("Mailbox is full\n");
+        return -1;
+    }
+    if (len < 0){
+        warn("Invalid mail length\n\n");
+        return 0;
+    }
+    if (len == 0){
+        warn("Send length 0 mail\n");
+        return 0;
+    }
+    if (buf == 0){
+        warn("Invalid buffer\n");
+        return 0;
+    }
+
+    char * buffer = (char *)buf;
+    if (len > MAX_MAIL_LENGTH){
+        warn("Trucate mail\n");
+        len = MAX_MAIL_LENGTH;
+        buffer[len] = '\0';
+    }
+    printf("sending mail: %s\n", buffer);
+    p->mailbox.mail_counter ++;
+    p->mailbox.mail_length[p->mailbox.length_e] = len;
+    p->mailbox.length_e = (p->mailbox.length_e + 1 ) % MAX_MAIL;
+    int remain_bytes = p->mailbox.data + MAIL_BUF_LENGTH - p->mailbox.data_e;
+    if (len <= remain_bytes){
+        memmove(p->mailbox.data_e, buffer, len);
+    }else{
+        memmove(p->mailbox.data_e, buffer, remain_bytes);
+        memmove(p->mailbox.data, buffer + remain_bytes, len - remain_bytes);
+    }
+    p->mailbox.data_e = (p->mailbox.data_e - p->mailbox.data + len) % MAIL_BUF_LENGTH + p->mailbox.data;
+    return len;
+}
+
 
 
 void

@@ -44,4 +44,5 @@ struct proc {
     uint64 exit_code;
 
     struct file* files[16];
+    struct mailbox mailbox;
 };
