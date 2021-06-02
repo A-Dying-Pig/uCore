@@ -4,7 +4,7 @@
 #include "proc.h"
 
 uint64 sys_write(int fd, uint64 va, uint len) {
-    if (fd != 0)
+    if (fd != 1)
         return -1;
     struct proc *p = curr_proc();
     char str[200];
@@ -65,6 +65,31 @@ uint64 sys_times() {
     return get_time_ms();
 }
 
+uint64 sys_spawn(uint64 va){
+    struct proc* p = curr_proc();
+    char name[200];
+    copyinstr(p->pagetable, name, va, 200);
+    info("sys_spawn %s\n", name);
+
+    int pid;
+    struct proc *np;
+    // Allocate process.
+    if((np = allocproc()) == 0){
+        panic("allocproc\n");
+    }
+    // Copy user memory from parent to child.
+    if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+        panic("uvmcopy\n");
+    }
+    pid = np->pid;
+    np->parent = p;
+    np->state = RUNNABLE;
+    np->sz = p->sz;
+
+    exec2(name,np);
+    return pid;
+}
+
 void syscall() {
     struct proc *p = curr_proc();
     struct trapframe *trapframe = p->trapframe;
@@ -92,6 +117,9 @@ void syscall() {
             break;
         case SYS_execve:
             ret = sys_exec(args[0]);
+            break;
+        case SYS_spawn:
+            ret = sys_spawn(args[0]);
             break;
         case SYS_wait4:
             ret = sys_wait(args[0], args[1]);

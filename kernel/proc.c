@@ -188,6 +188,7 @@ fork(void)
 }
 
 int exec(char* name) {
+    // printf("name: %s", name);
     int id = get_id_by_name(name);
     if(id < 0)
         return -1;
@@ -199,6 +200,20 @@ int exec(char* name) {
         panic("");
     }
     loader(id, p);
+    return 0;
+}
+
+int exec2(char* name,  struct proc *np) {
+    int id = get_id_by_name(name);
+    if(id < 0)
+        return -1;
+    proc_freepagetable(np->pagetable, np->sz);
+    np->sz = 0;
+    np->pagetable = proc_pagetable(np);
+    if(np->pagetable == 0){
+        panic("");
+    }
+    loader(id, np);
     return 0;
 }
 

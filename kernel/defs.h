@@ -55,6 +55,7 @@ void sched(void);
 void yield(void);
 int fork(void);
 int exec(char*);
+int exec2(char*, struct proc*);
 int wait(int, int*);
 struct proc *allocproc();
 
