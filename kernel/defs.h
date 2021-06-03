@@ -6,7 +6,7 @@ struct file;
 struct inode;
 struct pipe;
 struct proc;
-// struct stat;
+struct Stat;
 struct superblock;
 
 // panic.c
@@ -111,6 +111,9 @@ struct file *filealloc();
 int fileopen(char*, uint64);
 uint64 filewrite(struct file*, uint64, uint64);
 uint64 fileread(struct file*, uint64, uint64);
+int fstat(int fd, struct Stat* st);
+int linkat(int olddirfd, char* oldpath, int newdirfd, char* newpath, unsigned int flags);
+int unlinkat(int dirfd, char* path, unsigned int flags);
 
 // plic.c
 void plicinit(void);

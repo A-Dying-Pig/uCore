@@ -27,7 +27,7 @@ uint64 console_read(uint64 va, uint64 len) {
 }
 
 uint64 sys_write(int fd, uint64 va, uint64 len) {
-    if (fd == 0) {
+    if (fd <= 2) {
         return console_write(va, len);
     }
     struct proc *p = curr_proc();
@@ -42,7 +42,7 @@ uint64 sys_write(int fd, uint64 va, uint64 len) {
 }
 
 uint64 sys_read(int fd, uint64 va, uint64 len) {
-    if (fd == 0) {
+    if (fd <= 2) {
         return console_read(va, len);
     }
     struct proc *p = curr_proc();
@@ -135,6 +135,37 @@ uint64 sys_openat(uint64 va, uint64 omode, uint64 _flags) {
     return fileopen(path, omode);
 }
 
+
+uint64 sys_fstat(int fd, uint64 stat_va){
+    struct  proc * p = curr_proc();
+    struct Stat fst;
+    if(fstat(fd, &fst)!= 0 || copyout(p->pagetable, stat_va, (char*)&fst, sizeof(struct Stat)) != 0)
+        return -1;
+    return 0;
+}
+
+uint64 sys_linkat(int olddirfd, uint64 old_va, int newdirfd, uint64 new_va, unsigned int flags){
+    struct proc *p = curr_proc();
+    char old_file[200], new_file[200];
+    memset(old_file, 0, 200);
+    memset(new_file, 0, 200);
+    if(copyinstr(p->pagetable, old_file, old_va, 200) < 0 || copyinstr(p->pagetable, new_file, new_va, 200) < 0){
+        warn("invalid file address\n");
+        return -1;
+    }
+    return linkat(olddirfd, old_file, newdirfd, new_file, flags);
+}
+
+uint64 sys_unlinkat(int dirfd, uint64 va, unsigned int flags){
+    struct proc *p = curr_proc();
+    char file[200];
+    if(copyinstr(p->pagetable, file, va, 200) < 0 ){
+        warn("invalid file address\n");
+        return -1;
+    }
+    return unlinkat(dirfd, file, flags);
+}
+
 void syscall() {
     struct proc *p = curr_proc();
     struct trapframe *trapframe = p->trapframe;
@@ -177,6 +208,15 @@ void syscall() {
             break;
         case SYS_pipe2:
             ret = sys_pipe(args[0]);
+            break;
+        case SYS_linkat:
+            ret = sys_linkat(args[0],args[1],args[2],args[3],args[4]);
+            break;
+        case SYS_unlinkat:
+            ret = sys_unlinkat(args[0],args[1],args[2]);
+            break;
+        case SYS_fstat:
+            ret = sys_fstat(args[0],args[1]);
             break;
         default:
             ret = -1;

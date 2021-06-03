@@ -112,6 +112,8 @@ ialloc(uint dev, short type) {
         if (dip->type == 0) {// a free inode
             memset(dip, 0, sizeof(*dip));
             dip->type = type;
+            //nlink
+            dip->pad[0] = 1;
             bwrite(bp);
             brelse(bp);
             return iget(dev, inum);
@@ -133,6 +135,7 @@ void iupdate(struct inode *ip) {
     dip = (struct dinode *) bp->data + ip->inum % IPB;
     dip->type = ip->type;
     dip->size = ip->size;
+    dip->pad[0] = ip->nlink;
     memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
     bwrite(bp);
     brelse(bp);
@@ -184,6 +187,8 @@ void ivalid(struct inode *ip) {
         dip = (struct dinode *) bp->data + ip->inum % IPB;
         ip->type = dip->type;
         ip->size = dip->size;
+        //stat
+        ip->nlink = dip->pad[0];
         memmove(ip->addrs, dip->addrs, sizeof(ip->addrs));
         brelse(bp);
         ip->valid = 1;
@@ -412,4 +417,105 @@ struct inode *namei(char *path) {
     if (dp == 0)
         panic("fs dumped.\n");
     return dirlookup(dp, path + skip, 0);
+}
+
+int fstat(int fd, struct Stat* st){
+    struct proc *p = curr_proc();
+    if (p->files[fd] == 0 || p->files[fd]->ip == 0){
+        warn("Invalid fd\n");
+        return -1;
+    }
+    st->dev = p->files[fd]->ip->dev;
+    st->ino = p->files[fd]->ip->inum;
+    if (p->files[fd]->type == T_DIR)
+        st->mode = DIR;
+    else
+        st->mode = FILE;
+    st->nlink = p->files[fd]->ip->nlink;
+    return 0;
+}
+
+int linkat(int olddirfd, char* oldpath, int newdirfd, char* newpath, unsigned int flags){
+    if (strncmp(oldpath, newpath, 200) == 0){
+        warn("link files with same path\n");
+        return -1;
+    }
+
+    struct inode* dp = root_dir();
+    /*----------------GET OLD FILE----------------*/
+    struct inode * old_ip = dirlookup(dp, oldpath, 0);
+    if (old_ip == 0){
+        warn("link old file does not exist\n");
+        return -1;
+    }
+    ivalid(old_ip);
+    /*---------------CREATE NEW POINTER-----------*/
+    int empty_off = -1;
+    struct dirent de;
+
+    for (int off = 0; off < dp->size; off += sizeof(de)) {
+        if (readi(dp, 0, (uint64) &de, off, sizeof(de)) != sizeof(de))
+            panic("dirlookup read");
+        if (de.inum == 0){
+            if (empty_off == -1)
+                empty_off = off;
+            continue;
+        }
+        if (strncmp(newpath, de.name, DIRSIZ) == 0) {
+            // New name is already present.
+            warn("new path already exists\n");
+            de.inum = old_ip ->inum;
+            if(writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+                panic("dirlink");
+            goto cleanup;
+        }
+    }
+
+    // New name is not present.
+    strncpy(de.name, newpath, DIRSIZ);
+    de.inum = old_ip->inum;
+    if(writei(dp, 0, (uint64)&de, empty_off, sizeof(de)) != sizeof(de))
+        panic("dirlink");
+
+cleanup:
+    old_ip->nlink ++;
+    iupdate(old_ip);
+    iput(dp);
+    iput(old_ip);
+    return 0;
+}
+
+int unlinkat(int dirfd, char* path, unsigned int flags){
+    struct inode* dp = root_dir();
+    struct inode * ip = dirlookup(dp, path, 0);
+    if (ip == 0){
+        warn("unlink file does not exist\n");
+        return -1;
+    }
+    ivalid(ip);
+    int found = 0;
+    struct dirent de;
+    for (int off = 0; off < dp->size; off += sizeof(de)) {
+        if (readi(dp, 0, (uint64) &de, off, sizeof(de)) != sizeof(de))
+            panic("dirlookup read");
+        if (de.inum == 0)
+            continue;
+        if (strncmp(path, de.name, DIRSIZ) == 0) {
+            // info("unlink: %s \n", path);
+            de.inum = 0;
+            if(writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+                panic("dirlink");
+            found = 1;
+            ip->nlink --;
+            iupdate(ip);
+            break;
+        }
+    }
+    iput(dp);
+    iput(ip);
+    if(found == 0){
+        warn("unlink fails\n");
+        return -1;
+    }
+    return 0;
 }
