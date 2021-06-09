@@ -4,8 +4,14 @@
 
 #define min(a, b) a < b ? a : b;
 
+char *base=(char*)0x80400000;
+
 uint64 sys_write(int fd, char *str, uint len) {
     if (fd != 1)
+        return -1;
+    if(str<base)
+        return -1;
+    if(str+len>base+0x20000)
         return -1;
     for(int i = 0; i < len; ++i) {
         console_putchar(str[i]);
