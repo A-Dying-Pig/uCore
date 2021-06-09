@@ -53,6 +53,8 @@ void scheduler() __attribute__((noreturn));
 void sched();
 void yield();
 struct proc* allocproc();
+long long set_priority(long long p);
+struct proc* next();
 
 // timer.c
 uint64 get_cycle();

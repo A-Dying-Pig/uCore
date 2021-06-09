@@ -49,9 +49,15 @@ void usertrap() {
         cause &= ~(1ULL << 63);
         switch(cause) {
         case SupervisorTimer:
-            printf("time interrupt!\n");
+            //printf("time interrupt!\n");
             set_next_timer();
-            yield();
+            if(get_cycle()/25000000 >= 3)
+            {
+                printf("exit");
+                exit(0);
+            }else{
+                yield();
+            }
             break;
         default:
             unknown_trap();
