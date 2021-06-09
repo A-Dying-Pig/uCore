@@ -201,7 +201,7 @@ found:
         len = MAX_MAIL_LENGTH;
         buffer[len] = '\0';
     }
-    printf("sending mail: %s, length: %d \n", buffer,len);
+    // printf("sending mail: %s, length: %d \n", buffer,len);
     p->mailbox->mail_counter ++;
     p->mailbox->mail_length[p->mailbox->length_e] = len;
     p->mailbox->length_e = (p->mailbox->length_e + 1 ) % MAX_MAIL;

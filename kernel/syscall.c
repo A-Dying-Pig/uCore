@@ -2,6 +2,7 @@
 #include "syscall_ids.h"
 #include "trap.h"
 #include "proc.h"
+#include "time.h"
 
 #define min(a, b) a < b ? a : b;
 
@@ -142,7 +143,7 @@ uint64 sys_mailread(uint64 va, int len){
     if(ret > 0){ 
         copyout(p->pagetable, va, mail, len);
     }
-    info("sys_mailread: %s, ret: %d, \n", mail, ret);
+    // info("sys_mailread: %s, ret: %d, \n", mail, ret);
     return ret;
 }
 
@@ -153,8 +154,20 @@ uint64 sys_mailwrite(int pid, uint64 va, int len){
         warn("Invalid address\n");
         return -1;
     }
-    info("sys_mailwrite: %s, length: %d\n", mail, len);
+    // info("sys_mailwrite: %s, length: %d\n", mail, len);
     return mailwrite(pid,mail,len);
+}
+
+uint64 sys_get_time(uint64 ts_va, int tz){
+    struct proc *p =curr_proc();
+    TimeVal ts;
+    ts.sec=get_cycle()/25000000;
+    ts.usec=get_cycle()/25;
+    if(copyout(p->pagetable, ts_va, (char*)&ts, sizeof(TimeVal)) < 0 ){
+        error("copy out fails\n");
+        return -1;
+    }
+    return 0;
 }
 
 void syscall() {
@@ -202,6 +215,9 @@ void syscall() {
             break;
         case SYS_close:
             ret = sys_close(args[0]);
+            break;
+        case SYS_gettimeofday:
+            ret = sys_get_time(args[0],args[1]);
             break;
         default:
             ret = -1;
