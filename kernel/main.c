@@ -27,6 +27,15 @@ void main() {
     printf("edata: %p\n", e_data);
     printf("sbss : %p\n", s_bss);
     printf("ebss : %p\n", e_bss);
+    info("hello\n");
+    printfcolor("stext: %p\n", s_text);
+    printfcolor("etext: %p\n", e_text);
+    printfcolor("sroda: %p\n", s_rodata);
+    printfcolor("eroda: %p\n", e_rodata);
+    printfcolor("sdata: %p\n", s_data);
+    printfcolor("edata: %p\n", e_data);
+    printfcolor("sbss : %p\n", s_bss);
+    printfcolor("ebss : %p\n", e_bss);
     printf("\n");
     shutdown();
 }

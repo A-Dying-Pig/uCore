@@ -88,3 +88,48 @@ panic(char *s)
     printf("\n");
     loop();
 }
+
+//实现不同等级的log
+void closeprint(char *fmt, ...)
+{
+    return;
+}
+void error(char *fmt, ...)
+{
+    printf("\033[1;31m [error] [0] \033[0m");
+    printf("\033[1;31m");
+    printf(fmt);
+    return;
+}
+void warn(char *fmt, ...)
+{
+    printf("\033[1;33m [warn] [0] \033[0m");
+    printf("\033[1;33m");
+    printf(fmt);
+    error(fmt);
+    return;
+}
+void info(char *fmt, ...)
+{
+    printf("\033[1;34m [info] [0] \033[0m");
+    printf("\033[1;34m");
+    printf(fmt);
+    warn(fmt);
+    return;
+}
+void debug(char *fmt, ...)
+{
+    printf("\033[1;32m [debug] [0] \033[0m");
+    printf("\033[1;32m");
+    printf(fmt);
+    info(fmt);
+    return;
+}
+
+//使用彩色输出宏输出 os 内存空间布局
+void printfcolor(char *fmt,char *s)
+{
+    printf("\033[1;32m");
+    printf(fmt,s);
+    return;
+}
