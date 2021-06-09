@@ -43,7 +43,7 @@ struct proc {
     struct proc *parent;         // Parent process
     uint64 exit_code;
 
-    struct file* files[16];
+    struct file* files[16]; 
 };
 
 extern struct proc idle;

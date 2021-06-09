@@ -293,3 +293,5 @@
 #define SYS_pidfd_getfd 438
 #define SYS_faccessat2 439
 #define SYS_riscv_flush_icache 244 + 15
+#define SYS_rpc_in 440
+#define SYS_rpc_out 441

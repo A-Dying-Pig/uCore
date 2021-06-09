@@ -58,3 +58,11 @@ int sleep(unsigned long long time) {
 int pipe(void* p) {
     return syscall(SYS_pipe2, p);
 }
+
+int rpc_in(int fd){
+    return syscall(SYS_rpc_in, fd);
+} 
+
+int rpc_out(int fd){
+    return syscall(SYS_rpc_out, fd);
+}

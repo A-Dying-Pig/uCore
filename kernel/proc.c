@@ -186,6 +186,10 @@ fork(void)
     // copy saved user registers.
     *(np->trapframe) = *(p->trapframe);
 
+    // construct pipe between father and child process
+
+
+    // copy files
     for(int i = 0; i < FD_MAX; ++i)
         if(p->files[i] != 0 && p->files[i]->type != FD_NONE) {
             p->files[i]->ref++;

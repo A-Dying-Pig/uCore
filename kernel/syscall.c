@@ -27,30 +27,41 @@ uint64 console_read(uint64 va, uint64 len) {
 }
 
 uint64 sys_write(int fd, uint64 va, uint64 len) {
-    if (fd <= 2) {
-        return console_write(va, len);
-    }
+    // warn("write\n");
     struct proc *p = curr_proc();
     struct file *f = p->files[fd];
+    if(f == 0)
+        goto console;
     if (f->type == FD_PIPE) {
+        // warn("pipe write\n");
         return pipewrite(f->pipe, va, len);
     } else if (f->type == FD_INODE) {
         return filewrite(f, va, len);
+    }
+console:
+    if (fd <= 2) {
+        // warn("console\n");
+        return console_write(va, len);
     }
     error("unknown file type %d\n", f->type);
     return -1;
 }
 
 uint64 sys_read(int fd, uint64 va, uint64 len) {
-    if (fd <= 2) {
-        return console_read(va, len);
-    }
+    // warn("read\n");
     struct proc *p = curr_proc();
     struct file *f = p->files[fd];
+    if(f == 0)
+        goto console;
     if (f->type == FD_PIPE) {
+        // warn("pipe read");
         return piperead(f->pipe, va, len);
     } else if (f->type == FD_INODE) {
         return fileread(f, va, len);
+    }
+console:
+    if (fd <= 2) {
+        return console_read(va, len);
     }
     error("unknown file type %d\n", f->type);
     return -1;
@@ -79,6 +90,20 @@ sys_pipe(uint64 fdarray) {
         p->files[fd1] = 0;
         return -1;
     }
+    return 0;
+}
+
+uint64 sys_rpc_in(uint64 fd){
+    warn("rpc in fd: %d\n", fd);
+    struct proc * p = curr_proc();
+    p->files[0] = p->files[fd];
+    return 0;
+}
+
+uint64 sys_rpc_out(uint64 fd){
+    warn("rpc out fd: %d\n", fd);
+    struct proc * p = curr_proc();
+    p->files[1] = p->files[fd];
     return 0;
 }
 
@@ -208,6 +233,12 @@ void syscall() {
             break;
         case SYS_pipe2:
             ret = sys_pipe(args[0]);
+            break;
+        case SYS_rpc_in:
+            ret = sys_rpc_in(args[0]);
+            break;
+        case SYS_rpc_out:
+            ret = sys_rpc_out(args[0]);
             break;
         case SYS_linkat:
             ret = sys_linkat(args[0],args[1],args[2],args[3],args[4]);
