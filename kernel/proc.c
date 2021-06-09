@@ -5,6 +5,8 @@
 
 struct proc pool[NPROC];
 
+const uint64 BigStride = 255;
+
 __attribute__ ((aligned (16))) char kstack[NPROC][KSTACK_SIZE];
 
 extern char boot_stack_top[];
@@ -23,6 +25,8 @@ procinit(void)
     for(p = pool; p < &pool[NPROC]; p++) {
         p->state = UNUSED;
         p->kstack = (uint64) kstack[p - pool];
+        p->stride = 0;
+        p->priority = 16;
     }
     idle.kstack = (uint64)boot_stack_top;
     idle.pid = 0;
@@ -78,20 +82,91 @@ scheduler(void)
 // be proc->intena and proc->noff, but that would
 // break in the few places where a lock is held but
 // there's no process.
+uint8 compare(uint8 a,uint8 b)
+{
+    uint8 min;
+    if (a>b)
+    {
+        if((a-b)>BigStride/2)
+        {
+            min = a;
+        }else{
+            min = b;
+        }
+    }else{
+        if((b-a)>BigStride/2)
+        {
+            min = b;
+        }else{
+            min = a;
+        }
+    }
+    return min;
+}
+
+struct proc* next()
+{
+    struct proc *p;
+    struct proc *r;
+
+    uint8 min_stride = 233;
+    uint8 flag = 0;
+    
+    for(r = pool; r < &pool[NPROC]; r++) {
+        if(r->state==RUNNABLE)
+        {
+            flag = 1;
+            min_stride = r->stride;
+            break;
+        }  
+    }
+
+    if (!flag) {
+        // not initialized
+        printf("NO RUNNABLE");
+
+    }
+
+    for(p = pool; p < &pool[NPROC]; p++) {
+        if(p->state==RUNNABLE)
+        {
+            if(compare(min_stride,p->stride)==p->stride)
+            {
+                min_stride = p->stride;
+                r=p;
+            }
+        }  
+    }
+    r->state=RUNNING;
+    current_proc=r;
+    return r;
+}
 void
 sched(void)
 {
     struct proc *p = curr_proc();
     if(p->state == RUNNING)
         panic("sched running");
-    swtch(&p->context, &idle.context);
+    swtch(&p->context, &next()->context);
 }
 
 // Give up the CPU for one scheduling round.
 void yield(void)
 {
     current_proc->state = RUNNABLE;
+    current_proc->stride = current_proc->stride + BigStride/current_proc->priority;
     sched();
+}
+
+long long set_priority(long long p)
+{
+    if(p>=2)
+    {
+        current_proc->priority = p;
+        return p;
+    }else{
+        return -1;
+    }
 }
 
 void exit(int code) {

@@ -36,4 +36,6 @@ struct proc {
     uint64 kstack;               // Virtual address of kernel stack
     struct trapframe *trapframe; // data page for trampoline.S
     struct context context;      // swtch() here to run process
+    uint8 stride;
+    long long priority;
 };

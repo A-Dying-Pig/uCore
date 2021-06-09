@@ -52,6 +52,8 @@ void scheduler() __attribute__((noreturn));
 void sched();
 void yield();
 struct proc* allocproc();
+long long set_priority(long long p);
+struct proc* next();
 
 // kalloc.c
 void *kalloc(void);
